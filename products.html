@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <!-- Sol Taraf: Manuel Ekleme, Excel Yükleme ve Hazır Katalog -->
+    <div class="col-md-4">
+        <!-- 1. Manuel Ürün Ekle -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-primary text-white fw-bold py-2"><i class="bi bi-plus-circle"></i> Yeni Ürün Ekle
+            </div>
+            <div class="card-body p-3">
+                <form action="/urun/ekle" method="POST">
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small">Barkod No</label>
+                        <input type="text" name="barkod" id="input-barkod" class="form-control form-control-sm" required
+                            autofocus>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small">Ürün Adı</label>
+                        <input type="text" name="urun_adi" id="input-urun-adi" class="form-control form-control-sm"
+                            required>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="form-label fw-bold small">Fiyat (₺)</label>
+                            <input type="number" step="0.01" name="birim_fiyat" class="form-control form-control-sm"
+                                required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold small">Stok</label>
+                            <input type="number" name="stok_miktari" class="form-control form-control-sm" value="100"
+                                required>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-danger">Kritik Stok</label>
+                            <input type="number" name="kritik_stok" class="form-control form-control-sm border-danger"
+                                value="5" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold small">Kategori</label>
+                            <input type="text" name="kategori" id="input-kategori" class="form-control form-control-sm"
+                                placeholder="Gıda">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm w-100 fw-bold"><i class="bi bi-save"></i> Ürünü
+                        Kaydet</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 2. Excel / CSV'den Toplu Yükleme -->
+        <div class="card shadow-sm border-0 mb-3 border-start border-4 border-success">
+            <div class="card-body p-3">
+                <h6 class="fw-bold text-success mb-2"><i class="bi bi-file-earmark-excel-fill"></i> Excel / CSV'den
+                    Toplu Yükle</h6>
+                <form action="/urun/excel-yukle" method="POST" enctype="multipart/form-data">
+                    <input type="file" name="file" class="form-control form-control-sm mb-2" accept=".xlsx, .csv"
+                        required>
+                    <button type="submit" class="btn btn-outline-success btn-sm w-100 fw-bold"><i
+                            class="bi bi-upload"></i> Dosyayı İçe Aktar</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 3. Hazır Barkod Kataloğunu Yükleme -->
+        <div class="card shadow-sm border-0 bg-dark text-white p-3">
+            <h6 class="fw-bold text-warning mb-1"><i class="bi bi-database-fill-check"></i> Hazır Barkod Kataloğu</h6>
+            <p class="small text-white-50 mb-2">Türkiye genelinde yaygın satılan popüler ürün isimlerini tek tıkla
+                stoğunuza ekleyin.</p>
+            <form action="/urun/hazir-katalog-aktar" method="POST">
+                <button type="submit" class="btn btn-warning btn-sm w-100 fw-bold"><i
+                        class="bi bi-lightning-charge-fill"></i> Hazır Kataloğu İçe Aktar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Sağ Taraf: Tablo -->
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-table"></i> Kayıtlı Ürün Listesi</h5>
+                    <span class="badge bg-primary fs-6">{{ urunler|length }} Ürün</span>
+                </div>
+
+                <form action="/urunler" method="GET" class="row g-2 mt-2">
+                    <div class="col-md-5">
+                        <input type="text" name="q" class="form-control" placeholder="Barkod veya Ürün Adı Ara..."
+                            value="{{ secili_q }}">
+                    </div>
+                    <div class="col-md-4">
+                        <select name="kategori" class="form-select">
+                            <option value="">-- Tüm Kategoriler --</option>
+                            {% for kat in kategoriler %}
+                            <option value="{{ kat }}" {% if secili_kategori==kat %}selected{% endif %}>{{ kat }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex gap-1">
+                        <button type="submit" class="btn btn-primary fw-bold w-100"><i class="bi bi-funnel-fill"></i>
+                            Ara</button>
+                        {% if secili_q or secili_kategori %}
+                        <a href="/urunler" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
+                    <table class="table table-striped align-middle mb-0">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>#</th>
+                                <th>Barkod</th>
+                                <th>Ürün Adı</th>
+                                <th>Kategori</th>
+                                <th class="text-end">Fiyat</th>
+                                <th class="text-center">Mevcut Stok</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for urun in urunler %}
+                            <tr {% if urun.stok_miktari <=urun.kritik_stok %}class="table-danger" {% endif %}>
+                                <td>{{ urun.id }}</td>
+                                <td><span class="badge bg-secondary font-monospace">{{ urun.barkod }}</span></td>
+                                <td class="fw-bold">{{ urun.urun_adi }}</td>
+                                <td><span class="badge bg-info text-dark">{{ urun.kategori or 'Genel' }}</span></td>
+                                <td class="text-end fw-bold text-success">{{ "%.2f"|format(urun.birim_fiyat) }} ₺</td>
+                                <td class="text-center">
+                                    {% if urun.stok_miktari <= urun.kritik_stok %} <span class="badge bg-danger fs-6"><i
+                                            class="bi bi-exclamation-triangle-fill"></i> {{ urun.stok_miktari }}
+                                        adet</span>
+                                        {% else %}
+                                        <span class="badge bg-success fs-6">{{ urun.stok_miktari }} adet</span>
+                                        {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">Ürün bulunamadı.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Barkod okutulduğunda ürün sistemde yoksa Hazır Katalogda otomatik arar
+    document.getElementById('input-barkod').addEventListener('change', function () {
+        const barkod = this.value.trim();
+        if (barkod) {
+            fetch(`/api/katalog-sorgu/${barkod}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.found) {
+                        document.getElementById('input-urun-adi').value = data.urun_adi;
+                        document.getElementById('input-kategori').value = data.kategori;
+                    }
+                });
+        }
+    });
+</script>
+{% endblock %}

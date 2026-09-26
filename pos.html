@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- KRİTİK STOK UYARI BANNERI -->
+<div id="kritik-stok-alert" class="alert alert-danger alert-dismissible fade show d-none" role="alert">
+    <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+    <strong>KRİTİK STOK UYARISI!</strong> <span id="kritik-stok-text"></span>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+
+<div class="row g-2">
+    <!-- Üst Bar: İşlem Modu ve Barkod Okuyucu -->
+    <div class="col-12 mb-2">
+        <div class="card shadow-sm border-0 bg-white p-2">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="islemModu" id="modSatis" value="satis" checked onchange="modDegistir('satis')">
+                    <label class="btn btn-outline-success fw-bold px-3" for="modSatis"><i class="bi bi-cart-plus"></i> SATIŞ (F9)</label>
+
+                    <input type="radio" class="btn-check" name="islemModu" id="modIade" value="iade" onchange="modDegistir('iade')">
+                    <label class="btn btn-outline-danger fw-bold px-3" for="modIade"><i class="bi bi-arrow-counterclockwise"></i> İADE (F9)</label>
+                </div>
+
+                <div class="input-group flex-grow-1 mx-lg-3" style="max-width: 650px;">
+                    <span class="input-group-text bg-primary text-white fw-bold"><i class="bi bi-barcode-scan me-1"></i> Barkod</span>
+                    <input type="text" id="barcode-input" class="form-control form-control-lg fw-bold text-primary" placeholder="Barkod okutun veya Enter'a basın..." autofocus autocomplete="off">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sol Taraf: Sepet Tablosu ve Alt Hesaplama Paneli -->
+    <div class="col-lg-7 col-xl-8">
+        <div class="card shadow-sm border-0 mb-2">
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center py-2">
+                <span><i class="bi bi-cart3"></i> Sepetteki Ürünler <span id="mod-badge" class="badge bg-success ms-2">SATIŞ MODU</span></span>
+                <button class="btn btn-sm btn-outline-light" onclick="sepetiTemizle()"><i class="bi bi-trash"></i> Sepeti Temizle</button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="height: 360px; overflow-y: auto;">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>#</th>
+                                <th>Barkod</th>
+                                <th>Ürün Adı</th>
+                                <th class="text-center">Miktar</th>
+                                <th class="text-end">Satış Fiyatı</th>
+                                <th class="text-end">Toplam Tutar</th>
+                                <th class="text-center">Sil</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cart-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 p-3 bg-white">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-3">
+                    <button class="btn btn-warning w-100 fw-bold py-2" onclick="iskontoUygula()"><i class="bi bi-percent"></i> İskonto Uygula</button>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label mb-0 fw-bold small text-muted">ALINAN PARA (F11)</label>
+                    <input type="number" step="0.01" id="alinan-para" class="form-control form-control-lg fw-bold text-end border-primary" placeholder="0.00 ₺" oninput="paraUstuHesapla()">
+                </div>
+                <div class="col-md-3 text-center bg-light rounded p-2 border">
+                    <span class="small text-muted fw-bold d-block">PARA ÜSTÜ</span>
+                    <h4 class="mb-0 fw-bolder text-danger" id="para-ustu">0.00 ₺</h4>
+                </div>
+                <div class="col-md-3 text-center bg-dark text-white rounded p-2">
+                    <span class="small text-warning fw-bold d-block">ÖDENECEK TUTAR</span>
+                    <h3 class="mb-0 fw-bolder text-warning" id="total-amount">0.00 ₺</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sağ Taraf: Hızlı Tuş Grubu ve Ödeme Tamamlama -->
+    <div class="col-lg-5 col-xl-4">
+        <!-- Dokunmatik Hızlı Tuş Grubu -->
+        <div class="card shadow-sm border-0 mb-2">
+            <div class="card-header bg-success text-white fw-bold d-flex justify-content-between align-items-center py-2">
+                <span><i class="bi bi-grid-3x3-gap-fill me-1"></i> TEMEL ÜRÜNLER</span>
+                <button class="btn btn-sm btn-light fw-bold" data-bs-toggle="modal" data-bs-target="#hizliTusModal"><i class="bi bi-gear-fill"></i> Düzenle</button>
+            </div>
+            <div class="card-body p-2">
+                <div class="touch-grid" id="touch-grid-container">
+                    <!-- JS ile dinamik gelecek -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Ödeme Tamamlama Butonları -->
+        <div class="card shadow-sm border-0 p-3">
+            <div class="d-grid gap-2">
+                <button class="btn btn-success btn-lg py-2 fw-bold fs-5" onclick="satisiTamamla('Nakit')">
+                    <i class="bi bi-cash-stack me-1"></i> NAKİT ÖDEME (F2)
+                </button>
+                <button class="btn btn-primary btn-lg py-2 fw-bold fs-5" onclick="satisiTamamla('Kredi Kartı')">
+                    <i class="bi bi-credit-card me-1"></i> KREDİ KARTI (F3)
+                </button>
+                <button class="btn btn-danger btn-lg py-2 fw-bold fs-5" onclick="veresiyeSatisModalAc()">
+                    <i class="bi bi-journal-bookmark-fill me-1"></i> VERESİYE SATIŞ (F5)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Hızlı Tuş Yönetimi -->
+<div class="modal fade" id="hizliTusModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-grid-3x3-gap-fill"></i> Hızlı Tuş Düzenleme</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Eklemek İstediğiniz Ürünün Barkodunu Girin:</label>
+                    <div class="input-group">
+                        <input type="text" id="hizli-tus-barkod-input" class="form-control" placeholder="Barkod No...">
+                        <button class="btn btn-success" onclick="hizliTusEkle()"><i class="bi bi-plus-circle"></i> Ekle</button>
+                    </div>
+                </div>
+                <hr>
+                <h6 class="fw-bold">Mevcut Hızlı Tuşlar:</h6>
+                <ul class="list-group" id="hizli-tus-listesi">
+                    <!-- JS ile dolacak -->
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Veresiye Müşteri Seçimi -->
+<div class="modal fade" id="veresiyeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-lines-fill"></i> Veresiye Müşteri Seçin</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Müşteri Adı:</label>
+                    <select id="veresiye-musteri-select" class="form-select form-select-lg">
+                        <!-- JS ile dolacak -->
+                    </select>
+                </div>
+                <div class="d-grid">
+                    <button class="btn btn-danger btn-lg fw-bold" onclick="veresiyeSatisOnayla()"><i class="bi bi-check-circle-fill"></i> VERESİYE OLARAK KAYDET</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='pos.js') }}"></script>
+{% endblock %}

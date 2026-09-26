@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <h3 class="fw-bold mb-4"><i class="bi bi-truck"></i> Fatura Girişi & Toptancı Yönetimi</h3>
+
+    <div class="row g-4">
+        <!-- SOL KOLON: Toptancı Kayıt ve Ödeme İşlemleri -->
+        <div class="col-lg-4">
+            <!-- 1. KART: Yeni Toptancı Kaydet -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-primary text-white fw-bold">
+                    <i class="bi bi-person-plus-fill"></i> Yeni Toptancı Kaydet
+                </div>
+                <div class="card-body">
+                    <form action="/toptanci/ekle" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Firma / Toptancı Adı</label>
+                            <input type="text" name="firma_adi" class="form-control"
+                                placeholder="Örn: Bizim Toptan A.Ş." required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Yetkili Kişi</label>
+                            <input type="text" name="yetkili" class="form-control" placeholder="Örn: Ahmet Bey">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Telefon</label>
+                            <input type="text" name="telefon" class="form-control" placeholder="05XX XXX XX XX">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">Toptancı Ekle</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 2. KART: Toptancıya Ödeme Yap -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-danger text-white fw-bold">
+                    <i class="bi bi-cash-stack"></i> Toptancıya Ödeme Yap
+                </div>
+                <div class="card-body">
+                    <form action="/toptanci/odeme-yap" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Ödeme Yapılacak Toptancı:</label>
+                            <select name="toptanci_id" class="form-select" required>
+                                <option value="">-- Toptancı Seçin --</option>
+                                {% for t in toptancilar %}
+                                <option value="{{ t.id }}">{{ t.firma_adi }} (Borç: {{ "%.2f"|format(t.borc_bakiye) }}
+                                    TL)</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Ödenen Tutar (TL):</label>
+                            <input type="number" step="0.01" name="tutar" class="form-control" placeholder="0.00"
+                                min="0.01" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Ödeme Türü:</label>
+                            <select name="odeme_sekli" class="form-select">
+                                <option value="Nakit">Nakit</option>
+                                <option value="Kredi Kartı / POS">Kredi Kartı / POS</option>
+                                <option value="Banka Havalesi / EFT">Banka Havalesi / EFT</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Not / Açıklama:</label>
+                            <input type="text" name="aciklama" class="form-control" placeholder="Örn: Dekont No: 1234">
+                        </div>
+
+                        <button type="submit" class="btn btn-danger w-100 fw-bold">
+                            <i class="bi bi-check2-circle"></i> Ödemeyi Kaydet ve Borçtan Düş
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- SAĞ KOLON: Akıllı Mal Alım / Fatura Giriş Formu -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-success text-white fw-bold">
+                    <i class="bi bi-box-arrow-in-down"></i> Toptancıdan Mal Alımı (Fatura / İrsaliye Girişi)
+                </div>
+                <div class="card-body">
+                    <form action="/toptanci/mal-alimi" method="POST" id="malAlimForm">
+                        <!-- Toptancı Seçimi -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Toptancı Seçin:</label>
+                            <select name="toptanci_id" id="toptanci_select" class="form-select"
+                                onchange="toptanciDetayGetir(this.value)" required>
+                                <option value="">-- Lütfen Toptancı Seçiniz --</option>
+                                {% for t in toptancilar %}
+                                <option value="{{ t.id }}">{{ t.firma_adi }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Anlık Borç Göstergesi -->
+                        <div class="alert alert-warning d-flex justify-content-between align-items-center"
+                            id="borc_paneli" style="display:none !important;">
+                            <span class="fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> Toptancıya Güncel Borç
+                                Bakiyeniz:</span>
+                            <strong class="fs-5 text-danger" id="toptanci_borc_text">0.00 TL</strong>
+                        </div>
+
+                        <!-- BARKOD OKUTMA VE ÜRÜN SEÇİMİ -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold text-primary"><i class="bi bi-upc-scan"></i> Barkod
+                                    Okutun:</label>
+                                <input type="text" id="barkod_input" name="barkod"
+                                    class="form-control border-primary fw-bold"
+                                    placeholder="Barkod okutun veya yazın..." onchange="barkodSorgula(this.value)"
+                                    autofocus required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Veya Stoktan Seçin:</label>
+                                <select id="urun_select" class="form-select" onchange="urunSecildiFromSelect(this)">
+                                    <option value="">-- Kayıtlı Ürün Seçebilirsiniz --</option>
+                                    {% for u in urunler %}
+                                    <option value="{{ u.barkod }}" data-fiyat="{{ u.birim_fiyat }}"
+                                        data-adi="{{ u.urun_adi }}">{{ u.urun_adi }} ({{ u.barkod }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- ÜRÜN DETAYLARI (Otomatik Dolacak veya Elle Girilecek) -->
+                        <div class="row bg-light p-3 rounded mb-3 border">
+                            <div class="col-md-8 mb-2">
+                                <label class="form-label fw-bold">Ürün Adı:</label>
+                                <input type="text" name="urun_adi_input" id="urun_adi_input" class="form-control"
+                                    placeholder="Ürün Adı" required>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label fw-bold">Kategori:</label>
+                                <input type="text" name="kategori_input" id="kategori_input" class="form-control"
+                                    value="Genel">
+                            </div>
+                            <div class="col-12">
+                                <small id="urun_durum_bilgi" class="fw-bold text-muted"></small>
+                            </div>
+                        </div>
+
+                        <!-- Adet, Alış ve Satış Fiyatı -->
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Giren Adet:</label>
+                                <input type="number" name="adet" id="input_adet" class="form-control" value="1" min="1"
+                                    oninput="maliyetHesapla()" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Birim Alış Fiyatı (Maliyet):</label>
+                                <input type="number" step="0.01" name="alis_fiyati" id="input_alis" class="form-control"
+                                    placeholder="0.00" oninput="maliyetHesapla()" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Satış Fiyatı (Etiket):</label>
+                                <input type="number" step="0.01" name="satis_fiyati" id="input_satis"
+                                    class="form-control" placeholder="0.00" required>
+                            </div>
+                        </div>
+
+                        <!-- Canlı Hesaplanan Toplam Tutar -->
+                        <div class="p-3 mb-3 bg-light rounded border d-flex justify-content-between align-items-center">
+                            <span class="text-muted fw-bold">Toptancı Borcuna Eklenecek Toplam Maliyet:</span>
+                            <h4 class="text-danger m-0 fw-bold" id="toplam_maliyet_text">0.00 TL</h4>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100 fw-bold py-2">
+                            <i class="bi bi-check-circle"></i> Stok Girişini Yap ve Borca İşle
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALT BÖLÜM: Toptancı Geçmiş Hareket Tablosu -->
+    <div class="row mt-2">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div
+                    class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center py-3">
+                    <span><i class="bi bi-journal-text"></i> Seçili Toptancının Alım ve Ödeme Geçmişi</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Tarih / Saat</th>
+                                    <th>İşlem Tipi</th>
+                                    <th>Açıklama / Detay</th>
+                                    <th class="text-end">İşlem Tutarı</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gecmis_hareketler_body">
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">
+                                        Lütfen geçmiş hareketlerini görmek için yukarıdaki formdan bir toptancı seçiniz.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 1. Maliyet ve Toplam Borç Hesaplama
+    function maliyetHesapla() {
+        const adet = parseFloat(document.getElementById('input_adet').value) || 0;
+        const alis = parseFloat(document.getElementById('input_alis').value) || 0;
+        const toplam = adet * alis;
+
+        document.getElementById('toplam_maliyet_text').innerText = toplam.toFixed(2) + " TL";
+    }
+
+    // 2. Barkod Okutulduğunda Otomatik Ürün Sorgulama
+    function barkodSorgula(barkod) {
+        if (!barkod) return;
+
+        const durumLabel = document.getElementById('urun_durum_bilgi');
+        durumLabel.innerText = "Barkod sorgulanıyor...";
+        durumLabel.className = "fw-bold text-primary";
+
+        fetch(`/api/urun/${barkod}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.durum === "stokta_var") {
+                        document.getElementById('urun_adi_input').value = data.urun.urun_adi;
+                        document.getElementById('kategori_input').value = data.urun.kategori || "Genel";
+                        document.getElementById('input_satis').value = data.urun.birim_fiyat;
+
+                        durumLabel.innerText = "✓ Ürün dükkanda zaten kayıtlı. Bilgiler dolduruldu.";
+                        durumLabel.className = "fw-bold text-success";
+                    }
+                    else if (data.durum === "katalogda_var") {
+                        document.getElementById('urun_adi_input').value = data.urun.urun_adi;
+                        document.getElementById('kategori_input').value = data.urun.kategori || "Genel";
+                        document.getElementById('input_satis').value = "";
+
+                        durumLabel.innerText = "★ Ürün Hazır Katalogda Bulundu! Lütfen alış/satış fiyatı girin.";
+                        durumLabel.className = "fw-bold text-warning";
+                    }
+                }
+            })
+            .catch(err => {
+                // Ürün hiçbir yerde yoksa
+                document.getElementById('urun_adi_input').value = "";
+                document.getElementById('input_satis').value = "";
+                durumLabel.innerText = "+ Yeni ürün! Lütfen Ürün Adı, Alış ve Satış fiyatı belirleyin.";
+                durumLabel.className = "fw-bold text-info";
+            })
+            .finally(() => {
+                document.getElementById('input_alis').focus();
+            });
+    }
+
+    // 3. Dropdown Kutudan Seçim Yapıldığında
+    function urunSecildiFromSelect(selectElement) {
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+        const barkod = selectElement.value;
+        if (!barkod) return;
+
+        document.getElementById('barkod_input').value = barkod;
+        barkodSorgula(barkod);
+    }
+
+    // 4. Toptancı Geçmişi Çekme
+    function toptanciDetayGetir(toptanciId) {
+        const tbody = document.getElementById('gecmis_hareketler_body');
+        const borcPaneli = document.getElementById('borc_paneli');
+
+        if (!toptanciId) {
+            borcPaneli.style.setProperty("display", "none", "important");
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Lütfen geçmiş hareketlerini görmek için yukarıdaki formdan bir toptancı seçiniz.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-primary py-4"><i class="bi bi-hourglass-split"></i> Veriler yükleniyor...</td></tr>';
+
+        fetch(`/api/toptanci/${toptanciId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    borcPaneli.style.setProperty("display", "flex", "important");
+                    document.getElementById('toptanci_borc_text').innerText = (data.toptanci.borc_bakiye || 0).toFixed(2) + " TL";
+
+                    tbody.innerHTML = '';
+
+                    if (!data.hareketler || data.hareketler.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Bu toptancıya ait henüz hiç mal alımı veya ödeme kaydı yok.</td></tr>';
+                    } else {
+                        data.hareketler.forEach(item => {
+                            const tr = document.createElement('tr');
+                            const isMalAlim = item.islem_tipi === 'MAL_ALIMI';
+
+                            tr.innerHTML = `
+                                <td><small class="text-muted">${item.tarih}</small></td>
+                                <td>
+                                    <span class="badge ${isMalAlim ? 'bg-danger' : 'bg-success'}">
+                                        ${isMalAlim ? 'Mal Alımı (Borç)' : 'Ödeme Yapıldı'}
+                                    </span>
+                                </td>
+                                <td>${item.aciklama || '-'}</td>
+                                <td class="text-end fw-bold ${isMalAlim ? 'text-danger' : 'text-success'}">
+                                    ${isMalAlim ? '+' : '-'}${parseFloat(item.tutar).toFixed(2)} TL
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                }
+            })
+            .catch(err => {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle"></i> Veriler çekilemedi.</td></tr>`;
+            });
+    }
+</script>
+{% endblock %}

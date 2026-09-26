@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-danger text-white fw-bold py-3"><i class="bi bi-person-plus-fill"></i> Yeni Veresiye Müşteri Ekle</div>
+            <div class="card-body">
+                <form action="/veresiye/musteri-ekle" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Müşteri Ad Soyad</label>
+                        <input type="text" name="ad_soyad" class="form-control" placeholder="Örn: Ahmet Yılmaz" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Telefon Numarası</label>
+                        <input type="text" name="telefon" class="form-control" placeholder="05XX SSS MMN">
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100 fw-bold py-2"><i class="bi bi-save"></i> Müşteriyi Kaydet</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white fw-bold py-3"><i class="bi bi-journal-bookmark-fill"></i> Veresiye Müşteri Listesi & Borçlar</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>#</th>
+                                <th>Müşteri Adı</th>
+                                <th>Telefon</th>
+                                <th class="text-end">Mevcut Borç</th>
+                                <th class="text-center">Tahsilat Yap</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in musteriler %}
+                            <tr>
+                                <td>{{ m.id }}</td>
+                                <td class="fw-bold">{{ m.ad_soyad }}</td>
+                                <td>{{ m.telefon or '-' }}</td>
+                                <td class="text-end fw-bold text-danger fs-5">{{ "%.2f"|format(m.bakiye_borc) }} ₺</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-success fw-bold" onclick="tahsilatModalAç('{{ m.id }}', '{{ m.ad_soyad }}', '{{ m.bakiye_borc }}')">
+                                        <i class="bi bi-cash-coin"></i> Borç Tahsil Et
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">Veresiye defterinde kayıtlı müşteri bulunmamaktadır.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Tahsilat -->
+<div class="modal fade" id="tahsilatModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack"></i> Borç Tahsilatı</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/veresiye/tahsilat" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="musteri_id" id="tahsilat-musteri-id">
+                    <p class="fs-6">Müşteri: <strong id="tahsilat-musteri-ad"></strong></p>
+                    <p class="fs-6 text-danger">Kalan Borç: <strong id="tahsilat-musteri-borc"></strong> ₺</p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Ödenen Tutar (₺):</label>
+                        <input type="number" step="0.01" name="tutar" class="form-control form-control-lg fw-bold" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Ödeme Şekli:</label>
+                        <select name="odeme_sekli" class="form-select">
+                            <option value="Nakit">Nakit</option>
+                            <option value="Kredi Kartı">Kredi Kartı</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success fw-bold"><i class="bi bi-check-circle"></i> Tahsilatı Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function tahsilatModalAç(id, ad, borc) {
+    document.getElementById('tahsilat-musteri-id').value = id;
+    document.getElementById('tahsilat-musteri-ad').innerText = ad;
+    document.getElementById('tahsilat-musteri-borc').innerText = parseFloat(borc).toFixed(2);
+    new bootstrap.Modal(document.getElementById('tahsilatModal')).show();
+}
+</script>
+{% endblock %}
